@@ -63,21 +63,6 @@ for i in range(0, 4):
 	elif i == 1:
 		node = request.XenVM("metadata")
 		# Metadata node, maybe remove later?
-	elif i == 2:
-		node = request.XenVM("storage")
-		# addServices to create NFS server on storage node (directory: /scratch)
-		#node.addService(pg.Execute(shell="sh", command="sudo chmod 755 /local/repository/mountHead.sh"))
-		#node.addService(pg.Execute(shell="sh", command="sudo /local/repository/mountHead.sh"))
-
-		node.addService(pg.Execute(shell="sh", command="sudo chmod 755 /local/repository/mountStorage.sh"))
-		node.addService(pg.Execute(shell="sh", command="sudo /local/repository/mountStorage.sh"))
-		
-		node.addService(pg.Execute(shell="sh", command="sudo chmod 755 /local/repository/nfs_storage_setup.sh"))
-		node.addService(pg.Execute(shell="sh", command="sudo /local/repository/nfs_storage_setup.sh "))
-
-		# copy files to scratch
-		node.addService(pg.Execute(shell="sh", command="sudo cp /local/repository/source/* /scratch"))
-		node.addService(pg.Execute(shell="sh", command="sudo cp /local/repository/source/* /users/BC843101/scratch"))
 	else:
 		# compute-num nodes
 		node = request.XenVM("compute-" + str(i-2))
