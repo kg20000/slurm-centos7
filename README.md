@@ -1,80 +1,103 @@
-# slurm-centos7
-Installation for the Slurm job scheduler on a CentOS 7 cluster.</br>
-
-## Prerequisites
-* [btools](https://github.com/zachsnoek/btools)
-* `SYS_UID_MIN` in `/etc/login.defs` is < 980</br>
+# btools  
+A series of scripts to automate the execution of commands within a cluster.</br></br>
+Adapted from BYOC (Vance, Poublon, & Polik, 2016) for use with BYOC++.
+</br></br>
 
 ## Conventions
 * The head node is identified as `node01`
-* The compute nodes are identified as `node02` and `node03`</br>
+* The compute nodes are identified as `node02` and `node03`</br></br>
 
 ## Installation
-1. On each node, run the installation script (this takes 20-30 minutes to complete)</br></br>
-`$ ./install-slurm`</br></br>    
+1. On all of the nodes, install and configure `rsh`</br></br>
 
-2. On the head node, create a pseudorandom secret key for MUNGE to use on all of the compute nodes</br></br>
-`$ ./create-munge-key`</br></br>
+   a. Install the required packages</br></br>
+      `$ yum install -y rsh rsh-server`</br></br>
 
-3. Copy the MUNGE secret key to all of the compute nodes</br></br>
-`$ bpush /etc/munge/munge.key /etc/munge/munge.key`</br></br>
+   b. In `/etc/securetty`, add the following lines</br></br>
+      `rsh`</br>
+      `rexec`</br>
+      `rlogin`</br></br>
 
-4. Change the owner of `/etc/munge/munge.key` to the munge user on all of the nodes</br></br>
-`$ chown munge: /etc/munge/munge.key`</br>
-`$ bexec chown munge: /etc/munge/munge.key`</br></br>
+   c. In `/root/.rhosts`, add the following lines</br></br>
+      `node01 root`</br>
+      `node02 root`</br>
+      `node03 root`</br></br>
 
-5. Enable and start the MUNGE service on all of the nodes</br></br>
-`$ systemctl enable munge`</br>
-`$ systemctl start munge`</br>
-`$ bexec systemctl enable munge`</br>
-`$ bexec systemctl start munge`</br></br>
+   d. In `/etc/hosts.equiv`, add the following lines</br></br>
+      `node01`</br>
+      `node02`</br>
+      `node03`</br></br>
 
-6. From any computer, complete the Slurm configuration file [generator](https://slurm.schedmd.com/configurator.easy.html); edit the fields according to the values below (fields not addressed below should be left as their default value or empty if there is no default value)</br>
-     - ControlMachine: `node01`
-     - NodeNames: `node[02-03]`
-     - CPUs, Sockets, CoresPerSocket, and ThreadsPerCore: Values can be found by listing the CPU information on your machine with the `lscpu` command</br>
-     - StateSaveLocation: `/var/spool/slurm`
-     - SlurmctldLogFile: `/var/log/slurm/slurmctld.log`
-     - SlurmdLogFile: `/var/log/slurm/slurmd.log`</br></br>
+   e. Enable and start the sockets</br></br>
+      `$ systemctl enable rsh.socket`</br>
+      `$ systemctl enable rexec.socket`</br>
+      `$ systemctl enable rlogin.socket`</br>
+      `$ systemctl start rsh.socket`</br>
+      `$ systemctl start rexec.socket`</br>
+      `$ systemctl start rlogin.socket`</br></br>
 
-7. Click `submit` at the bottom of the page to generate the configuration file</br></br>
+   f. Disable SELinux by changing `SELINUX=enforcing` in `/etc/sysconfig/selinux`</br></br>
+      `SELINUX=disabled`</br></br>
+      
+   g. Reboot all of the nodes</br></br>
+      `$ init 6`</br></br>
 
-8. Copy the configuration file to the head node and save the file to `/etc/slurm/slurm.conf`</br></br>
+2. On the head node, run `btools` to create all of the scripts on your machine</br></br>
+   `$ ./btools`</br></br>
 
-9. Copy the configuration file to all of the compute nodes</br></br>
-`$ bpush /etc/slurm/slurm.conf /etc/slurm/slurm.conf`</br></br>
+3. Add the hostnames of your compute nodes to `/usr/local/sbin/bhosts`</br></br>
+   `node02`</br>
+   `node03`</br></br>
 
-10. Move the cgroup configuration file to `/etc/slurm/cgroup.conf` (overwrite the existing file created with the install script)</br></br>
-`$ mv files/cgroup.conf /etc/slurm/cgroup.conf`</br></br>
+4. Enable passwordless rsh to remove password prompts for the `bsync` command</br></br>
 
-11. Copy the cgroup configuration file to all of the compute nodes</br></br>
-`$ bpush /etc/slurm/cgroup.conf /etc/slurm/cgroup.conf`</br></br>
+   a. Generate a public/private rsa key pair; leave all of the prompts blank and hit enter for each</br></br>
+      `$ ssh-keygen`</br>
+      `Generating public/private rsa key pair.`</br>
+      `Enter file in which to save the key (/root/.ssh/id_rsa):`</br>
+      `Enter passphrase (empty for no passphrase):`</br>
+      `Enter same passphrase again:`</br>
+      `Your identification has been saved in /root/.ssh/id_rsa.`</br>
+      `Your public key has been saved in /root/.ssh/id_rsa.pub.`</br></br>
 
-12. Disable and stop the firewalld service on all of the compute nodes</br></br>
-`$ bexec systemctl disable firewalld`</br>
-`$ bexec systemctl stop firewalld`</br></br>
+   b. Copy the public ssh key to all of the compute nodes and enter the passwords for each machine when prompted</br></br>
+      `$ ssh-copy-id -i /root/.ssh/id_rsa.pub node02`</br>
+      `$ ssh-copy-id -i /root/.ssh/id_rsa.pub node03`</br></br>
+   
+## Description
+**bhosts** is a file that contains the hostnames of all of the compute nodes. For example:</br></br>
+```
+node02
+node03
+node04
+```
+</br>
 
-13. On the head node, open port 6817 for Slurm</br></br>
-`$ firewall-cmd --permanent --zone=public --add-port=6817/tcp`</br>
-`$ firewall-cmd --reload`</br></br>
+**brsh** loops through all of the hostnames in `bhosts`, executing `rsh <command>` for each.
+</br></br>
 
-14. On the head node, enable and start the slurmctld service</br></br>
-`$ systemctl enable slurmctld`</br>
-`$ systemctl start slurmctld`</br></br>
+**bexec** executes a command over the hostnames in `bhosts`, but it does not wait for each node to finish like `brsh` does. `bexec` starts the command on each node and then waits for them to finish; additionally, it retrieves and displays the logs for the operations. If Slurm is set up on the cluster, `bexec` will check will status of the compute nodes through Slurm.
+</br></br>
 
-15. On all of the compute nodes, enable and start the slurmd service</br></br>
-`$ systemctl enable slurmd`</br>
-`$ systemctl start slurmd`</br></br>
+**bpush**
+`bpush` copies a file to all of the hostnames in `bhosts`. Similarly to `bexec`, it executes the command across the nodes simultaneously, while also retrieving and displaying the logs
+</br></br>
 
-## Testing
-Check the Slurm configuration on the head node</br></br>
-`$ slurmd -C`</br></br>
+**bfiles**
+`bfiles` is a file that contains a list of files to be copied to all of the compute nodes. It contains:</br></br>
+```
+/etc/passwd/
+/etc/group/
+/etc/shadow/
+/etc/gshadow/
+```
+</br>
 
-Check the Slurm configuration on all of the compute nodes</br></br>
-`$ slurmd -C`</br></br>
+**bsync**
+`bsync` copies the files defined in `bfiles` to all of the compute nodes. Thus, the users on the head node will exist on all of the compute nodes.
+</br></br>
 
-Confirm that all of the compute nodes are reporting to the head node</br></br>
-`$ scontrol show nodes`</br></br>
-
-Run an interactive job</br></br>
-`$ srun --pty bash`</br>
+## References
+Nathan R. Vance, Michael L. Poublon and William F. Polik, "BYOC: Build Your Own Cluster, Part III - Configuration",</br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linux Journal, July 2016, Issue 279, 70-98.
+</br>
