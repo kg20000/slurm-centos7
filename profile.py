@@ -35,7 +35,7 @@ link = request.LAN("lan")
 
 #for i in range(0, 15):
 
-for i in range(0, 4):
+for i in range(0, 3):
 	
 #	if i == 0:
 #		#node.addService(pg.Execute(shell="sh", command="sudo -p mkdir /software"))
